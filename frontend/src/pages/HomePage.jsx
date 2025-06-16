@@ -1,226 +1,197 @@
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { MessageCircle, MapPin, Star, ArrowRight, Search } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { apiService, formatWhatsAppUrl } from '../lib/api'
 
-const HomePage = () => {
-  // Dados mockados para teste
-  const mockCategories = [
-    { id: 1, name: 'Restaurantes', description: 'Restaurantes e lanchonetes', icon: 'utensils', business_count: 15 },
-    { id: 2, name: 'Farmácias', description: 'Farmácias e drogarias', icon: 'pill', business_count: 8 },
-    { id: 3, name: 'Supermercados', description: 'Supermercados e mercearias', icon: 'shopping-cart', business_count: 12 },
-    { id: 4, name: 'Beleza', description: 'Salões de beleza e estética', icon: 'scissors', business_count: 20 }
-  ]
+function HomePage({ onNavigate }) {
+  const [categories, setCategories] = useState([])
+  const [featuredBusinesses, setFeaturedBusinesses] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const mockBusinesses = [
-    {
-      id: 1,
-      business_name: 'Restaurante do João',
-      description: 'Comida caseira e deliciosa',
-      rating: 4.5,
-      review_count: 23,
-      whatsapp: '11999999999',
-      city: { name: 'São Paulo', state: 'SP' },
-      category: { name: 'Restaurantes' }
-    },
-    {
-      id: 2,
-      business_name: 'Farmácia Central',
-      description: 'Medicamentos e produtos de saúde',
-      rating: 4.8,
-      review_count: 15,
-      whatsapp: '11888888888',
-      city: { name: 'São Paulo', state: 'SP' },
-      category: { name: 'Farmácias' }
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const loadData = async () => {
+    try {
+      const [categoriesRes, businessesRes] = await Promise.all([
+        apiService.getCategories(),
+        apiService.getBusinesses({ per_page: 6 })
+      ])
+      
+      setCategories(categoriesRes.data)
+      setFeaturedBusinesses(businessesRes.data.businesses || [])
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error)
+    } finally {
+      setLoading(false)
     }
-  ]
-
-  const renderStars = (rating) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <Star
-        key={i}
-        className={`w-4 h-4 ${
-          i < Math.floor(rating)
-            ? "fill-yellow-400 text-yellow-400"
-            : "text-gray-300"
-        }`}
-      />
-    ))
   }
 
   const handleWhatsAppClick = (business) => {
-    const whatsappNumber = business.whatsapp.replace(/\D/g, '')
-    const formattedNumber = whatsappNumber.startsWith('55') ? whatsappNumber : `55${whatsappNumber}`
-    const message = encodeURIComponent(
-      `Olá! Vi seu estabelecimento "${business.business_name}" no Peça no Zap e gostaria de saber mais informações.`
+    const url = formatWhatsAppUrl(
+      business.whatsapp || business.phone,
+      business.business_name,
+      `Olá! Vi o ${business.business_name} no Peça no Zap e gostaria de mais informações.`
     )
-    window.open(`https://wa.me/${formattedNumber}?text=${message}`, '_blank')
+    window.open(url, '_blank')
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <section className="gradient-primary text-white py-16 md:py-24">
-        <div className="container mx-auto px-4 text-center">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              Encontre e conecte-se com estabelecimentos
-            </h1>
-            <p className="text-xl md:text-2xl mb-8 opacity-90">
-              Descubra os melhores negócios da sua cidade e entre em contato direto pelo WhatsApp
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
-                size="lg" 
-                variant="secondary"
-                className="text-primary hover:text-primary"
-              >
-                <Search className="w-5 h-5 mr-2" />
-                Explorar Categorias
-              </Button>
-              <Button 
-                size="lg" 
-                variant="outline"
-                className="border-white text-white hover:bg-white hover:text-primary"
-              >
-                Ver Todos os Estabelecimentos
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </div>
+      <section className="bg-gradient-to-r from-green-500 to-green-600 text-white py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 className="text-4xl md:text-6xl font-bold mb-6">
+            🍃 Peça no Zap
+          </h1>
+          <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto">
+            Conecte-se diretamente com os melhores estabelecimentos da sua cidade via WhatsApp
+          </p>
+          <div className="space-x-4">
+            <button
+              onClick={() => onNavigate('businesses')}
+              className="bg-white text-green-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+            >
+              Ver Estabelecimentos
+            </button>
+            <button
+              onClick={() => onNavigate('login')}
+              className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-green-600 transition-colors"
+            >
+              Cadastrar Negócio
+            </button>
           </div>
         </div>
       </section>
 
-      {/* Categories Section */}
+      {/* Categorias */}
       <section className="py-16">
-        <div className="container mx-auto px-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold mb-2">Explore por Categoria</h2>
-            <p className="text-muted-foreground">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Explore por Categoria
+            </h2>
+            <p className="text-lg text-gray-600">
               Encontre exatamente o que você precisa
             </p>
           </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {mockCategories.map((category) => (
-              <Card 
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {categories.map((category) => (
+              <button
                 key={category.id}
-                className="hover-lift cursor-pointer group border-2 hover:border-primary/50 transition-all duration-200"
+                onClick={() => onNavigate('businesses')}
+                className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow text-center group"
               >
-                <CardContent className="p-6 text-center">
-                  <div className="flex flex-col items-center space-y-3">
-                    <div className="p-3 rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                      <div className="w-8 h-8 flex items-center justify-center">
-                        📍
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h3 className="font-semibold text-sm md:text-base">
-                        {category.name}
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {category.description}
-                      </p>
-                    </div>
-                    
-                    <div className="flex items-center justify-between w-full">
-                      <Badge variant="secondary" className="text-xs">
-                        {category.business_count} locais
-                      </Badge>
-                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                <div className="text-3xl mb-3">
+                  {category.icon === 'utensils' && '🍽️'}
+                  {category.icon === 'pill' && '💊'}
+                  {category.icon === 'shopping-cart' && '🛒'}
+                  {category.icon === 'scissors' && '✂️'}
+                  {category.icon === 'heart' && '❤️'}
+                  {category.icon === 'book' && '📚'}
+                  {category.icon === 'wrench' && '🔧'}
+                  {category.icon === 'store' && '🏪'}
+                </div>
+                <h3 className="font-semibold text-gray-900 group-hover:text-green-600">
+                  {category.name}
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {category.description}
+                </p>
+              </button>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Featured Businesses */}
-      <section className="py-16 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Estabelecimentos em Destaque</h2>
-            <p className="text-muted-foreground">
-              Conheça alguns dos melhores negócios cadastrados
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mockBusinesses.map((business) => (
-              <Card key={business.id} className="hover-lift">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
+      {/* Estabelecimentos em Destaque */}
+      {featuredBusinesses.length > 0 && (
+        <section className="py-16 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                Estabelecimentos em Destaque
+              </h2>
+              <p className="text-lg text-gray-600">
+                Conecte-se diretamente via WhatsApp
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {featuredBusinesses.map((business) => (
+                <div key={business.id} className="bg-gray-50 rounded-lg p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex justify-between items-start mb-4">
                     <div>
-                      <CardTitle className="text-lg">{business.business_name}</CardTitle>
-                      <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
-                        <MapPin className="w-3 h-3" />
-                        {business.city?.name}, {business.city?.state}
-                      </div>
+                      <h3 className="text-xl font-semibold text-gray-900">
+                        {business.business_name}
+                      </h3>
+                      <p className="text-gray-600">
+                        {business.category?.name} • {business.city?.name}
+                      </p>
                     </div>
-                    <Badge variant="secondary">
-                      {business.category?.name}
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <div className="flex">
-                      {renderStars(business.rating || 0)}
+                    <div className="flex items-center">
+                      <span className="text-yellow-400">⭐</span>
+                      <span className="ml-1 text-sm text-gray-600">
+                        {business.rating || '5.0'}
+                      </span>
                     </div>
-                    <span className="text-sm text-muted-foreground">
-                      {business.rating ? business.rating.toFixed(1) : "0.0"}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      ({business.review_count || 0} avaliações)
-                    </span>
                   </div>
-                </CardHeader>
-                
-                <CardContent>
+
                   {business.description && (
-                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                    <p className="text-gray-600 mb-4 line-clamp-2">
                       {business.description}
                     </p>
                   )}
-                  
-                  <Button 
-                    className="w-full gradient-primary shadow-whatsapp"
-                    onClick={() => handleWhatsAppClick(business)}
-                  >
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    Conversar no WhatsApp
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* CTA Section */}
-      <section className="py-16">
-        <div className="container mx-auto px-4">
-          <Card className="gradient-secondary border-0">
-            <CardContent className="p-8 md:p-12 text-center">
-              <h2 className="text-3xl font-bold mb-4">
-                Tem um estabelecimento?
-              </h2>
-              <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-                Cadastre seu negócio gratuitamente e conecte-se com milhares de clientes através do WhatsApp
-              </p>
-              <Button 
-                size="lg" 
-                className="gradient-primary shadow-whatsapp"
-                onClick={() => window.location.href = '/login'}
+                  <button
+                    onClick={() => handleWhatsAppClick(business)}
+                    className="w-full bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <span>💬</span>
+                    <span>Conversar no WhatsApp</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-center mt-12">
+              <button
+                onClick={() => onNavigate('businesses')}
+                className="bg-green-500 text-white px-8 py-3 rounded-lg hover:bg-green-600 transition-colors"
               >
-                Cadastrar Estabelecimento
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </CardContent>
-          </Card>
+                Ver Todos os Estabelecimentos
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Call to Action */}
+      <section className="py-16 bg-green-50">
+        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            Tem um estabelecimento?
+          </h2>
+          <p className="text-lg text-gray-600 mb-8">
+            Cadastre seu negócio e conecte-se com mais clientes via WhatsApp
+          </p>
+          <button
+            onClick={() => onNavigate('login')}
+            className="bg-green-500 text-white px-8 py-3 rounded-lg hover:bg-green-600 transition-colors text-lg font-semibold"
+          >
+            Cadastrar Meu Negócio
+          </button>
         </div>
       </section>
     </div>
@@ -228,4 +199,3 @@ const HomePage = () => {
 }
 
 export default HomePage
-
