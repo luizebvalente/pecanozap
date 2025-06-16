@@ -1,29 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { LogIn, UserPlus, Building, MessageCircle } from 'lucide-react'
-import { authService, categoryService, cityService } from '@/lib/api'
+import { apiService } from '../lib/api'
 
-const LoginPage = () => {
-  const [activeTab, setActiveTab] = useState('login')
-  const [loading, setLoading] = useState(false)
-  const [categories, setCategories] = useState([])
-  const [cities, setCities] = useState([])
-  
-  const [loginForm, setLoginForm] = useState({
-    email: '',
-    password: ''
-  })
-  
-  const [registerForm, setRegisterForm] = useState({
+function LoginPage({ onLogin, onNavigate }) {
+  const [isLogin, setIsLogin] = useState(true)
+  const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: '',
     business_name: '',
     owner_name: '',
     phone: '',
@@ -33,6 +15,10 @@ const LoginPage = () => {
     city_id: '',
     category_id: ''
   })
+  const [categories, setCategories] = useState([])
+  const [cities, setCities] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     loadData()
@@ -41,314 +27,252 @@ const LoginPage = () => {
   const loadData = async () => {
     try {
       const [categoriesRes, citiesRes] = await Promise.all([
-        categoryService.getAll(),
-        cityService.getAll()
+        apiService.getCategories(),
+        apiService.getCities()
       ])
-      
       setCategories(categoriesRes.data)
       setCities(citiesRes.data)
     } catch (error) {
       console.error('Erro ao carregar dados:', error)
+      setError('Erro ao carregar dados. Tente novamente.')
     }
   }
 
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    
+    setError('')
+
     try {
-      const response = await authService.login(loginForm)
-      
-      // Salvar token e dados do usuário
-      localStorage.setItem('token', response.data.access_token)
-      localStorage.setItem('user', JSON.stringify(response.data.user))
-      
-      alert('Login realizado com sucesso!')
-      window.location.href = '/dashboard'      
+      if (isLogin) {
+        const response = await apiService.login({
+          email: formData.email,
+          password: formData.password
+        })
+        
+        if (response.data.access_token) {
+          localStorage.setItem('token', response.data.access_token)
+          onLogin(response.data.user)
+          alert('Login realizado com sucesso!')
+        }
+      } else {
+        const response = await apiService.register(formData)
+        alert('Cadastro realizado com sucesso! Faça login para continuar.')
+        setIsLogin(true)
+        setFormData({ ...formData, password: '' })
+      }
     } catch (error) {
-      alert(error.response?.data?.error || 'Erro ao fazer login')
+      setError(error.response?.data?.error || 'Erro ao processar solicitação')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleRegister = async (e) => {
-    e.preventDefault()
-    
-    if (registerForm.password !== registerForm.confirmPassword) {
-      alert('As senhas não coincidem')
-      return
-    }
-    
-    if (registerForm.password.length < 6) {
-      alert('A senha deve ter pelo menos 6 caracteres')
-      return
-    }
-    
-    setLoading(true)
-    
-    try {
-      const { confirmPassword, ...registerData } = registerForm
-      await authService.register(registerData)
-      
-      alert('Cadastro realizado com sucesso! Faça login para continuar.')
-      setActiveTab('login')
-      setLoginForm({ email: registerForm.email, password: '' })
-      
-    } catch (error) {
-      alert(error.response?.data?.error || 'Erro ao fazer cadastro')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleLoginInputChange = (field, value) => {
-    setLoginForm(prev => ({ ...prev, [field]: value }))
-  }
-
-  const handleRegisterInputChange = (field, value) => {
-    setRegisterForm(prev => ({ ...prev, [field]: value }))
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    })
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-full gradient-primary flex items-center justify-center mx-auto mb-4">
-            <MessageCircle className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold">Peça no Zap</h1>
-          <p className="text-muted-foreground">
-            Conecte seu estabelecimento aos clientes
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold text-gray-900">
+            {isLogin ? 'Entrar na conta' : 'Cadastrar estabelecimento'}
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            {isLogin ? 'Acesse seu painel administrativo' : 'Cadastre seu negócio no Peça no Zap'}
           </p>
         </div>
+      </div>
 
-        <Card>
-          <CardHeader>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Entrar
-                </TabsTrigger>
-                <TabsTrigger value="register">
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Cadastrar
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </CardHeader>
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          {error && (
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          )}
 
-          <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              {/* Login */}
-              <TabsContent value="login">
-                <form onSubmit={handleLogin} className="space-y-4">
-                  <div>
-                    <Label htmlFor="login-email">Email</Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      value={loginForm.email}
-                      onChange={(e) => handleLoginInputChange('email', e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="login-password">Senha</Label>
-                    <Input
-                      id="login-password"
-                      type="password"
-                      placeholder="Sua senha"
-                      value={loginForm.password}
-                      onChange={(e) => handleLoginInputChange('password', e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? 'Entrando...' : 'Entrar'}
-                  </Button>
-                </form>
-              </TabsContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Email
+              </label>
+              <input
+                type="email"
+                name="email"
+                required
+                value={formData.email}
+                onChange={handleChange}
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500"
+              />
+            </div>
 
-              {/* Register */}
-              <TabsContent value="register">
-                <form onSubmit={handleRegister} className="space-y-4">
-                  {/* Dados de acesso */}
-                  <div className="space-y-4">
-                    <h3 className="font-semibold flex items-center gap-2">
-                      <LogIn className="w-4 h-4" />
-                      Dados de Acesso
-                    </h3>
-                    
-                    <div>
-                      <Label htmlFor="register-email">Email *</Label>
-                      <Input
-                        id="register-email"
-                        type="email"
-                        placeholder="seu@email.com"
-                        value={registerForm.email}
-                        onChange={(e) => handleRegisterInputChange('email', e.target.value)}
-                        required
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label htmlFor="register-password">Senha *</Label>
-                        <Input
-                          id="register-password"
-                          type="password"
-                          placeholder="Mínimo 6 caracteres"
-                          value={registerForm.password}
-                          onChange={(e) => handleRegisterInputChange('password', e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="confirm-password">Confirmar Senha *</Label>
-                        <Input
-                          id="confirm-password"
-                          type="password"
-                          placeholder="Confirme a senha"
-                          value={registerForm.confirmPassword}
-                          onChange={(e) => handleRegisterInputChange('confirmPassword', e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
+            {/* Senha */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Senha
+              </label>
+              <input
+                type="password"
+                name="password"
+                required
+                value={formData.password}
+                onChange={handleChange}
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500"
+              />
+            </div>
 
-                  {/* Dados do estabelecimento */}
-                  <div className="space-y-4">
-                    <h3 className="font-semibold flex items-center gap-2">
-                      <Building className="w-4 h-4" />
-                      Dados do Estabelecimento
-                    </h3>
-                    
-                    <div>
-                      <Label htmlFor="business-name">Nome do Estabelecimento *</Label>
-                      <Input
-                        id="business-name"
-                        placeholder="Ex: Restaurante do João"
-                        value={registerForm.business_name}
-                        onChange={(e) => handleRegisterInputChange('business_name', e.target.value)}
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="owner-name">Nome do Proprietário *</Label>
-                      <Input
-                        id="owner-name"
-                        placeholder="Seu nome completo"
-                        value={registerForm.owner_name}
-                        onChange={(e) => handleRegisterInputChange('owner_name', e.target.value)}
-                        required
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label htmlFor="phone">Telefone *</Label>
-                        <Input
-                          id="phone"
-                          placeholder="(11) 99999-9999"
-                          value={registerForm.phone}
-                          onChange={(e) => handleRegisterInputChange('phone', e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="whatsapp">WhatsApp *</Label>
-                        <Input
-                          id="whatsapp"
-                          placeholder="(11) 99999-9999"
-                          value={registerForm.whatsapp}
-                          onChange={(e) => handleRegisterInputChange('whatsapp', e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="address">Endereço *</Label>
-                      <Input
-                        id="address"
-                        placeholder="Rua, número, bairro"
-                        value={registerForm.address}
-                        onChange={(e) => handleRegisterInputChange('address', e.target.value)}
-                        required
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label htmlFor="city">Cidade *</Label>
-                        <Select 
-                          value={registerForm.city_id} 
-                          onValueChange={(value) => handleRegisterInputChange('city_id', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {cities.map((city) => (
-                              <SelectItem key={city.id} value={city.id.toString()}>
-                                {city.name}, {city.state}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="category">Categoria *</Label>
-                        <Select 
-                          value={registerForm.category_id} 
-                          onValueChange={(value) => handleRegisterInputChange('category_id', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories.map((category) => (
-                              <SelectItem key={category.id} value={category.id.toString()}>
-                                {category.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="description">Descrição (opcional)</Label>
-                      <Textarea
-                        id="description"
-                        placeholder="Descreva seu estabelecimento..."
-                        value={registerForm.description}
-                        onChange={(e) => handleRegisterInputChange('description', e.target.value)}
-                        rows={3}
-                      />
-                    </div>
-                  </div>
-                  
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? 'Cadastrando...' : 'Cadastrar Estabelecimento'}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+            {/* Campos de cadastro */}
+            {!isLogin && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Nome do Estabelecimento
+                  </label>
+                  <input
+                    type="text"
+                    name="business_name"
+                    required
+                    value={formData.business_name}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
 
-        <div className="text-center mt-6">
-          <Button variant="ghost" onClick={() => window.location.href = '/'}>
-            Voltar ao início
-          </Button>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Nome do Proprietário
+                  </label>
+                  <input
+                    type="text"
+                    name="owner_name"
+                    required
+                    value={formData.owner_name}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    WhatsApp
+                  </label>
+                  <input
+                    type="tel"
+                    name="whatsapp"
+                    value={formData.whatsapp}
+                    onChange={handleChange}
+                    placeholder="(11) 99999-9999"
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Categoria
+                  </label>
+                  <select
+                    name="category_id"
+                    required
+                    value={formData.category_id}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  >
+                    <option value="">Selecione uma categoria</option>
+                    {categories.map(category => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Cidade
+                  </label>
+                  <select
+                    name="city_id"
+                    required
+                    value={formData.city_id}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  >
+                    <option value="">Selecione uma cidade</option>
+                    {cities.map(city => (
+                      <option key={city.id} value={city.id}>
+                        {city.name} - {city.state}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Endereço
+                  </label>
+                  <textarea
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    rows={2}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Descrição
+                  </label>
+                  <textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    rows={3}
+                    placeholder="Descreva seu estabelecimento..."
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+              </>
+            )}
+
+            <div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+              >
+                {loading ? 'Processando...' : (isLogin ? 'Entrar' : 'Cadastrar')}
+              </button>
+            </div>
+          </form>
+
+          <div className="mt-6">
+            <div className="text-center">
+              <button
+                onClick={() => setIsLogin(!isLogin)}
+                className="text-green-600 hover:text-green-500"
+              >
+                {isLogin ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Faça login'}
+              </button>
+            </div>
+            
+            {onNavigate && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => onNavigate('home')}
+                  className="text-gray-600 hover:text-gray-500"
+                >
+                  ← Voltar ao início
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -356,4 +280,3 @@ const LoginPage = () => {
 }
 
 export default LoginPage
-
