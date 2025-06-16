@@ -1,64 +1,35 @@
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search, Filter, MapPin, Grid, List } from 'lucide-react'
-import BusinessCard from '@/components/BusinessCard'
-import { businessService, categoryService, cityService } from '@/lib/api'
+import { apiService, formatWhatsAppUrl } from '../lib/api'
 
-const BusinessesPage = () => {
+function BusinessesPage({ onNavigate }) {
   const [businesses, setBusinesses] = useState([])
   const [categories, setCategories] = useState([])
   const [cities, setCities] = useState([])
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState('grid')
-  
-  // Filtros
   const [filters, setFilters] = useState({
-    search: '',
-    city_id: '',
     category_id: '',
-    page: 1
-  })
-  
-  const [pagination, setPagination] = useState({
-    total: 0,
-    pages: 0,
-    current_page: 1
+    city_id: '',
+    search: ''
   })
 
   useEffect(() => {
-    loadInitialData()
-    
-    // Verificar parâmetros da URL
-    const urlParams = new URLSearchParams(window.location.search)
-    const newFilters = { ...filters }
-    
-    if (urlParams.get('search')) newFilters.search = urlParams.get('search')
-    if (urlParams.get('city')) newFilters.city_id = urlParams.get('city')
-    if (urlParams.get('category')) newFilters.category_id = urlParams.get('category')
-    
-    setFilters(newFilters)
+    loadData()
   }, [])
 
   useEffect(() => {
-    if (categories.length > 0 && cities.length > 0) {
-      loadBusinesses()
-    }
-  }, [filters, categories, cities])
+    loadBusinesses()
+  }, [filters])
 
-  const loadInitialData = async () => {
+  const loadData = async () => {
     try {
       const [categoriesRes, citiesRes] = await Promise.all([
-        categoryService.getAll(),
-        cityService.getAll()
+        apiService.getCategories(),
+        apiService.getCities()
       ])
-      
       setCategories(categoriesRes.data)
       setCities(citiesRes.data)
     } catch (error) {
-      console.error('Erro ao carregar dados iniciais:', error)
+      console.error('Erro ao carregar dados:', error)
     }
   }
 
@@ -66,263 +37,275 @@ const BusinessesPage = () => {
     setLoading(true)
     try {
       const params = {}
-      if (filters.search) params.search = filters.search
-      if (filters.city_id) params.city_id = filters.city_id
       if (filters.category_id) params.category_id = filters.category_id
-      params.page = filters.page
-      params.per_page = 12
+      if (filters.city_id) params.city_id = filters.city_id
+      if (filters.search) params.search = filters.search
 
-      const response = await businessService.getAll(params)
+      const response = await apiService.getBusinesses(params)
       setBusinesses(response.data.businesses || [])
-      setPagination({
-        total: response.data.total,
-        pages: response.data.pages,
-        current_page: response.data.current_page
-      })
     } catch (error) {
       console.error('Erro ao carregar estabelecimentos:', error)
+      setBusinesses([])
     } finally {
       setLoading(false)
     }
   }
 
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value,
-      page: 1 // Reset para primeira página
-    }))
+  const handleFilterChange = (e) => {
+    setFilters({
+      ...filters,
+      [e.target.name]: e.target.value
+    })
   }
 
-  const handleSearch = (e) => {
-    e.preventDefault()
-    loadBusinesses()
+  const clearFilters = () => {
+    setFilters({
+      category_id: '',
+      city_id: '',
+      search: ''
+    })
   }
 
-  const handlePageChange = (newPage) => {
-    setFilters(prev => ({ ...prev, page: newPage }))
-  }
-
-  const getSelectedCityName = () => {
-    if (!filters.city_id) return 'Todas as cidades'
-    const city = cities.find(c => c.id.toString() === filters.city_id)
-    return city ? `${city.name}, ${city.state}` : 'Cidade selecionada'
-  }
-
-  const getSelectedCategoryName = () => {
-    if (!filters.category_id) return 'Todas as categorias'
-    const category = categories.find(c => c.id.toString() === filters.category_id)
-    return category ? category.name : 'Categoria selecionada'
+  const handleWhatsAppClick = (business) => {
+    const url = formatWhatsAppUrl(
+      business.whatsapp || business.phone,
+      business.business_name,
+      `Olá! Vi o ${business.business_name} no Peça no Zap e gostaria de mais informações.`
+    )
+    window.open(url, '_blank')
   }
 
   return (
-    <div className="min-h-screen py-8">
-      <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Estabelecimentos</h1>
-          <p className="text-muted-foreground">
-            Encontre os melhores negócios e entre em contato pelo WhatsApp
-          </p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              Estabelecimentos
+            </h1>
+            <p className="text-lg text-gray-600">
+              Encontre e conecte-se com os melhores negócios da sua região
+            </p>
+          </div>
         </div>
+      </div>
 
-        {/* Filtros */}
-        <div className="bg-card rounded-lg border p-6 mb-8">
-          <form onSubmit={handleSearch} className="space-y-4">
+      {/* Filtros */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Busca */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Buscar
+              </label>
+              <input
                 type="text"
-                placeholder="Buscar estabelecimentos..."
+                name="search"
                 value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
-                className="pl-10"
+                onChange={handleFilterChange}
+                placeholder="Nome do estabelecimento..."
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500"
               />
             </div>
 
-            {/* Filtros em linha */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  <MapPin className="w-4 h-4 inline mr-1" />
-                  Cidade
-                </label>
-                <Select 
-                  value={filters.city_id} 
-                  onValueChange={(value) => handleFilterChange('city_id', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma cidade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Todas as cidades</SelectItem>
-                    {cities.map((city) => (
-                      <SelectItem key={city.id} value={city.id.toString()}>
-                        {city.name}, {city.state}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  <Filter className="w-4 h-4 inline mr-1" />
-                  Categoria
-                </label>
-                <Select 
-                  value={filters.category_id} 
-                  onValueChange={(value) => handleFilterChange('category_id', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Todas as categorias</SelectItem>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id.toString()}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-end">
-                <Button type="submit" className="w-full">
-                  <Search className="w-4 h-4 mr-2" />
-                  Buscar
-                </Button>
-              </div>
+            {/* Categoria */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Categoria
+              </label>
+              <select
+                name="category_id"
+                value={filters.category_id}
+                onChange={handleFilterChange}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500"
+              >
+                <option value="">Todas as categorias</option>
+                {categories.map(category => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
             </div>
-          </form>
-        </div>
 
-        {/* Filtros ativos e controles */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <div className="flex flex-wrap gap-2">
-            {filters.city_id && (
-              <Badge variant="secondary" className="gap-1">
-                <MapPin className="w-3 h-3" />
-                {getSelectedCityName()}
-                <button 
-                  onClick={() => handleFilterChange('city_id', '')}
-                  className="ml-1 hover:text-destructive"
-                >
-                  ×
-                </button>
-              </Badge>
-            )}
-            {filters.category_id && (
-              <Badge variant="secondary" className="gap-1">
-                {getSelectedCategoryName()}
-                <button 
-                  onClick={() => handleFilterChange('category_id', '')}
-                  className="ml-1 hover:text-destructive"
-                >
-                  ×
-                </button>
-              </Badge>
-            )}
-            {filters.search && (
-              <Badge variant="secondary" className="gap-1">
-                "{filters.search}"
-                <button 
-                  onClick={() => handleFilterChange('search', '')}
-                  className="ml-1 hover:text-destructive"
-                >
-                  ×
-                </button>
-              </Badge>
-            )}
-          </div>
+            {/* Cidade */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Cidade
+              </label>
+              <select
+                name="city_id"
+                value={filters.city_id}
+                onChange={handleFilterChange}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500"
+              >
+                <option value="">Todas as cidades</option>
+                {cities.map(city => (
+                  <option key={city.id} value={city.id}>
+                    {city.name} - {city.state}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              {pagination.total} estabelecimentos
-            </span>
-            <div className="flex border rounded-md">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-                className="rounded-r-none"
+            {/* Botão Limpar */}
+            <div className="flex items-end">
+              <button
+                onClick={clearFilters}
+                className="w-full bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 transition-colors"
               >
-                <Grid className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-                className="rounded-l-none"
-              >
-                <List className="w-4 h-4" />
-              </Button>
+                Limpar Filtros
+              </button>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Lista de estabelecimentos */}
+      {/* Conteúdo */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {loading ? (
           <div className="text-center py-12">
-            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p>Carregando estabelecimentos...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Carregando estabelecimentos...</p>
           </div>
         ) : businesses.length === 0 ? (
           <div className="text-center py-12">
-            <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="font-semibold text-lg mb-2">Nenhum estabelecimento encontrado</h3>
-            <p className="text-muted-foreground">
-              Tente ajustar os filtros ou buscar por outros termos
+            <div className="text-6xl mb-4">🔍</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              Nenhum estabelecimento encontrado
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Tente ajustar os filtros ou cadastre o primeiro estabelecimento
             </p>
+            <button
+              onClick={() => onNavigate('login')}
+              className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors"
+            >
+              Cadastrar Estabelecimento
+            </button>
           </div>
         ) : (
-          <div className={`grid gap-6 ${
-            viewMode === 'grid' 
-              ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' 
-              : 'grid-cols-1'
-          }`}>
-            {businesses.map((business) => (
-              <BusinessCard key={business.id} business={business} />
-            ))}
-          </div>
-        )}
+          <>
+            {/* Contador de resultados */}
+            <div className="mb-6">
+              <p className="text-gray-600">
+                {businesses.length} estabelecimento{businesses.length !== 1 ? 's' : ''} encontrado{businesses.length !== 1 ? 's' : ''}
+              </p>
+            </div>
 
-        {/* Paginação */}
-        {pagination.pages > 1 && (
-          <div className="flex justify-center gap-2 mt-8">
-            <Button
-              variant="outline"
-              disabled={pagination.current_page === 1}
-              onClick={() => handlePageChange(pagination.current_page - 1)}
-            >
-              Anterior
-            </Button>
-            
-            {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
-              const page = i + 1
-              return (
-                <Button
-                  key={page}
-                  variant={page === pagination.current_page ? 'default' : 'outline'}
-                  onClick={() => handlePageChange(page)}
-                >
-                  {page}
-                </Button>
-              )
-            })}
-            
-            <Button
-              variant="outline"
-              disabled={pagination.current_page === pagination.pages}
-              onClick={() => handlePageChange(pagination.current_page + 1)}
-            >
-              Próxima
-            </Button>
-          </div>
+            {/* Grid de estabelecimentos */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {businesses.map((business) => (
+                <div key={business.id} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden">
+                  {/* Header do card */}
+                  <div className="p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex-1">
+                        <h3 className="text-xl font-semibold text-gray-900 mb-1">
+                          {business.business_name}
+                        </h3>
+                        <div className="flex items-center text-sm text-gray-600 space-x-2">
+                          <span>{business.category?.name}</span>
+                          <span>•</span>
+                          <span>{business.city?.name}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center bg-yellow-50 px-2 py-1 rounded">
+                        <span className="text-yellow-400 text-sm">⭐</span>
+                        <span className="ml-1 text-sm font-medium text-gray-700">
+                          {business.rating || '5.0'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Descrição */}
+                    {business.description && (
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                        {business.description}
+                      </p>
+                    )}
+
+                    {/* Endereço */}
+                    {business.address && (
+                      <div className="flex items-start text-sm text-gray-500 mb-4">
+                        <span className="mr-2">📍</span>
+                        <span className="line-clamp-2">{business.address}</span>
+                      </div>
+                    )}
+
+                    {/* Informações de contato */}
+                    <div className="space-y-2 mb-4">
+                      {business.phone && (
+                        <div className="flex items-center text-sm text-gray-600">
+                          <span className="mr-2">📞</span>
+                          <span>{business.phone}</span>
+                        </div>
+                      )}
+                      {business.whatsapp && (
+                        <div className="flex items-center text-sm text-gray-600">
+                          <span className="mr-2">💬</span>
+                          <span>{business.whatsapp}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Botão WhatsApp */}
+                    <button
+                      onClick={() => handleWhatsAppClick(business)}
+                      className="w-full bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center space-x-2 font-medium"
+                    >
+                      <span>💬</span>
+                      <span>Conversar no WhatsApp</span>
+                    </button>
+                  </div>
+
+                  {/* Footer com informações extras */}
+                  <div className="bg-gray-50 px-6 py-3 border-t">
+                    <div className="flex justify-between items-center text-xs text-gray-500">
+                      <span>Proprietário: {business.owner_name}</span>
+                      {business.created_at && (
+                        <span>
+                          Desde {new Date(business.created_at).toLocaleDateString('pt-BR')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Call to action */}
+            <div className="text-center mt-12 py-8 bg-green-50 rounded-lg">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Não encontrou o que procura?
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Cadastre seu estabelecimento e conecte-se com mais clientes
+              </p>
+              <button
+                onClick={() => onNavigate('login')}
+                className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors"
+              >
+                Cadastrar Meu Negócio
+              </button>
+            </div>
+          </>
         )}
       </div>
+
+      {/* Botão voltar */}
+      {onNavigate && (
+        <div className="fixed bottom-6 left-6">
+          <button
+            onClick={() => onNavigate('home')}
+            className="bg-white shadow-lg rounded-full p-3 hover:shadow-xl transition-shadow"
+          >
+            <span className="text-xl">←</span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }
