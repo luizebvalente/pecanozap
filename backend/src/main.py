@@ -455,7 +455,15 @@ if __name__ == '__main__':
 def popular_ubatuba():
     try:
         # Script SQL embutido
-        sql_script = "-- 1. ADICIONAR CATEGORIA AUTOPEÇAS
+        sql_script = """
+        -- =====================================================
+-- SCRIPT PARA POPULAR UBATUBA-SP NO PEÇA NO ZAP
+-- =====================================================
+-- Baseado em estabelecimentos reais de Ubatuba-SP
+-- Foco na região da Av Rio Grande do Sul e centro
+-- =====================================================
+
+-- 1. ADICIONAR CATEGORIA AUTOPEÇAS
 INSERT INTO categories (name, description, icon, created_at) VALUES 
 ('Autopeças', 'Autopeças e acessórios automotivos', '🚗', NOW())
 ON CONFLICT (name) DO NOTHING;
@@ -867,8 +875,10 @@ INSERT INTO reviews (business_id, customer_name, rating, comment, created_at) VA
 -- Região: Centro e proximidades da Av Rio Grande do Sul
 -- =====================================================
 
-COMMIT;"
+COMMIT;
 
+
+        """
         
         # Executar
         db.session.execute(text(sql_script))
