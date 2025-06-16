@@ -9,31 +9,8 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // 10 segundos
+  timeout: 10000,
 })
-
-// Interceptor para logs (opcional)
-api.interceptors.request.use(
-  (config) => {
-    console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`)
-    return config
-  },
-  (error) => {
-    console.error('❌ API Request Error:', error)
-    return Promise.reject(error)
-  }
-)
-
-api.interceptors.response.use(
-  (response) => {
-    console.log(`✅ API Response: ${response.status} ${response.config.url}`)
-    return response
-  },
-  (error) => {
-    console.error('❌ API Response Error:', error.response?.status, error.message)
-    return Promise.reject(error)
-  }
-)
 
 // Serviços da API
 export const apiService = {
@@ -61,32 +38,21 @@ export const apiService = {
 
 // Funções auxiliares
 export const formatWhatsAppUrl = (phone, businessName, message = '') => {
-  // Remover caracteres especiais do telefone
   const cleanPhone = phone.replace(/\D/g, '')
-  
-  // Adicionar código do Brasil se necessário
   const fullPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`
-  
-  // Mensagem padrão
   const defaultMessage = message || `Olá! Vi o ${businessName} no Peça no Zap e gostaria de mais informações.`
-  
-  // Codificar mensagem para URL
   const encodedMessage = encodeURIComponent(defaultMessage)
-  
   return `https://wa.me/${fullPhone}?text=${encodedMessage}`
 }
 
 export const formatRating = (rating) => {
-  return Math.round(rating * 10) / 10 // Arredondar para 1 casa decimal
+  return Math.round(rating * 10) / 10
 }
 
 export const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('pt-BR')
 }
 
-// Exportar instância do axios configurada
+// Exportar instância do axios
 export { api }
-
-// Exportar URL base para uso direto
 export { API_BASE_URL }
-
