@@ -19,7 +19,7 @@ import {
   Eye,
   BarChart3
 } from 'lucide-react'
-import { authService, categoryService, cityService, reviewService } from '@/lib/api'
+import { apiService } from '../lib/api'
 
 const DashboardPage = () => {
   const [user, setUser] = useState(null)
