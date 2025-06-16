@@ -3,6 +3,7 @@ import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import BusinessesPage from './pages/BusinessesPage'
 import DashboardPage from './pages/DashboardPage'
+import MapPage from './pages/MapPage'
 import './App.css'
 
 function App() {
@@ -24,6 +25,8 @@ function App() {
 
   const renderPage = () => {
     switch(currentPage) {
+      case 'map':
+        return <MapPage onNavigate={setCurrentPage} />
       case 'login':
         return <LoginPage onLogin={handleLogin} onNavigate={setCurrentPage} />
       case 'businesses':
@@ -125,6 +128,9 @@ function App() {
               className="text-gray-300 hover:text-white"
             >
               Início
+            </button>
+            <button onClick={() => setCurrentPage('map')}>
+            🗺️ Encontrar no Mapa
             </button>
             <button
               onClick={() => setCurrentPage('businesses')}
