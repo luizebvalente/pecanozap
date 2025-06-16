@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import ReviewList from '@/components/ReviewList'
 import ReviewForm from '@/components/ReviewForm'
-import { businessService, reviewService } from '@/lib/api'
+import { apiService } from '../lib/api'
 
 const BusinessDetailPage = () => {
   const { id } = useParams()
