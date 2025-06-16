@@ -196,6 +196,7 @@ def health_check():
         'endpoints': [
             '/api/categories',
             '/api/cities',
+            '/api/popular-ubatuba',
             '/api/businesses',
             '/api/register',
             '/api/login',
